@@ -26,6 +26,7 @@ features = ["log"]
 version = "0.7.1"
 features = [
   "dhcpv4",
+  "dhcpv4-hostname",
   "log",
   "medium-ethernet",
   "tcp",
