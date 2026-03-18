@@ -10,8 +10,11 @@
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
 use esp_hal::clock::CpuClock;
+use esp_hal::gpio::{Level, Output, OutputConfig};
 use esp_hal::timer::timg::TimerGroup;
-use log::info;
+use esp_storage::FlashStorage;
+use log::*;
+use ubraintank::config::Config;
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
@@ -52,8 +55,22 @@ async fn main(spawner: Spawner) -> ! {
     // TODO: Spawn some tasks
     let _ = spawner;
 
+    let mut led = Output::new(peripherals.GPIO2, Level::High, OutputConfig::default());
+
+    let storage = FlashStorage::new(peripherals.FLASH);
+    let mut nvs = ubraintank::nvs::new(storage).expect("Failed to create NVS storage");
+
+    match Config::try_from_nvs(&mut nvs) {
+        Ok(config) => {
+            info!("Hi, I'm {}", config.device.name);
+        },
+        Err(err) => {
+            error!("Could not read config from NVS, at namespace {:?} for key {:?}", err.namespace, err.key);
+        }
+    };
+
     loop {
-        info!("Hello world!");
+        led.toggle();
         Timer::after(Duration::from_secs(1)).await;
     }
 

@@ -1,0 +1,14 @@
+key,type,encoding,value
+
+# device
+device,namespace,,
+name,data,string,my-device
+
+# wifi
+wifi,namespace,,
+ssid,data,string,MyWiFi
+pass,data,string,supersecret
+
+# api
+api,namespace,,
+report_url,data,string,https://example.com/api

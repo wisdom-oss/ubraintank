@@ -6,7 +6,7 @@ version      = "0.1.0"
 
 [[bin]]
 name = "ubraintank"
-path = "./src/bin/main.rs"
+path = "./src/main.rs"
 
 [dependencies]
 critical-section = "1.2.0"
@@ -43,6 +43,10 @@ features = ["esp32", "log-04"]
 version = "~1.0"
 features = ["esp32", "log-04", "unstable"]
 
+[dependencies.esp-nvs]
+version = "0.3.0"
+features = ["esp32"]
+
 [dependencies.esp-println]
 version = "0.16.1"
 features = ["esp32", "log-04"]
@@ -67,6 +71,10 @@ features = [
   "esp32",
   "log-04",
 ]
+
+[dependencies.esp-storage]
+version = "0.8.1"
+features = ["esp32"]
 
 [dependencies.smoltcp]
 version = "0.12.0"

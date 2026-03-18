@@ -1,0 +1,8 @@
+[project]
+name = "ubraintank-support"
+version = "0.0.0"
+requires-python = ">=3.13"
+dependencies = [
+    "esp-idf-nvs-partition-gen>=0.2.0",
+    "esptool>=5.2.0",
+]
