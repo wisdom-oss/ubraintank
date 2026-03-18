@@ -3,21 +3,25 @@ use esp_nvs::{Key, Nvs, platform::Platform};
 
 use crate::nvs::Keys;
 
+#[derive(Debug)]
 pub struct Config {
     pub device: DeviceConfig,
     pub wifi: WifiConfig,
     pub api: ApiConfig,
 }
 
+#[derive(Debug)]
 pub struct DeviceConfig {
     pub name: String,
 }
 
+#[derive(Debug)]
 pub struct WifiConfig {
     pub ssid: String,
     pub pass: String,
 }
 
+#[derive(Debug)]
 pub struct ApiConfig {
     pub report_url: String,
 }

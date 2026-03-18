@@ -1,0 +1,5 @@
+[partition_data.nvs]
+# these are the default values for nvs partitions, 
+# change them here too if required
+offset = 0x9000
+size = 0x6000

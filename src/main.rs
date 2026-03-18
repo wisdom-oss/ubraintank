@@ -62,7 +62,7 @@ async fn main(spawner: Spawner) -> ! {
 
     match Config::try_from_nvs(&mut nvs) {
         Ok(config) => {
-            info!("Hi, I'm {}", config.device.name);
+            info!("{config:#?}");
         },
         Err(err) => {
             error!("Could not read config from NVS, at namespace {:?} for key {:?}", err.namespace, err.key);
