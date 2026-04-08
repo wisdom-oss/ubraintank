@@ -11,6 +11,7 @@ use alloc::{boxed::Box, format};
 use embassy_executor::Spawner;
 use embassy_net::{DhcpConfig, Runner, StackResources};
 use embassy_time::{Duration, Timer};
+use esp_hal::analog::adc::{Adc, AdcConfig, Attenuation};
 use esp_hal::clock::CpuClock;
 use esp_hal::gpio::{Level, Output, OutputConfig};
 use esp_hal::timer::timg::TimerGroup;
@@ -108,8 +109,24 @@ async fn main(spawner: Spawner) -> ! {
 
     let mut led = Output::new(peripherals.GPIO2, Level::High, OutputConfig::default());
 
+    let mut relais = Output::new(peripherals.GPIO25, Level::Low, OutputConfig::default());
+
+    let mut adc_config = AdcConfig::new();
+    let mut sensor = adc_config.enable_pin(peripherals.GPIO35, Attenuation::_11dB);
+    let mut adc = Adc::new(peripherals.ADC1, adc_config);
+
     loop {
         led.toggle();
+        relais.toggle();
+
+        match nb::block!(adc.read_oneshot(&mut sensor)) {
+            Err(_) => error!("could not read sensor"),
+            Ok(reading) => {
+                let percent = u16::MAX / reading;
+                info!("sensor reading: {reading} ({percent}%)");
+            }
+        }
+
         Timer::after(Duration::from_secs(1)).await;
     }
 
