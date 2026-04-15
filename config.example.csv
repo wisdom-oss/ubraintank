@@ -11,4 +11,4 @@ pass,data,string,supersecret
 
 # api
 api,namespace,,
-report_url,data,string,https://example.com/api
+report_url,data,string,https://example.com:443/api

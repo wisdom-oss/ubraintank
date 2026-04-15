@@ -7,8 +7,13 @@
 )]
 #![deny(clippy::large_stack_frames)]
 
+use core::cmp;
+use core::ffi::CStr;
+
 use alloc::{boxed::Box, format};
 use embassy_executor::Spawner;
+use embassy_net::dns::DnsSocket;
+use embassy_net::tcp::client::{TcpClient, TcpClientState};
 use embassy_net::{DhcpConfig, Runner, StackResources};
 use embassy_time::{Duration, Timer};
 use esp_hal::analog::adc::{Adc, AdcConfig, Attenuation};
@@ -18,6 +23,8 @@ use esp_hal::timer::timg::TimerGroup;
 use esp_radio::wifi::{ClientConfig, ModeConfig, WifiDevice};
 use esp_storage::FlashStorage;
 use log::*;
+use reqwless::client::HttpClient;
+use reqwless::request::Method;
 use ubraintank::config::Config;
 
 #[panic_handler]
@@ -107,6 +114,14 @@ async fn main(spawner: Spawner) -> ! {
     wifi_stack.wait_config_up().await;
     info!("{:#?}", wifi_stack.config_v4());
 
+    const N: usize = 1;
+    const TX_SZ: usize = 2048; // 2 kB
+    const RX_SZ: usize = 2048;
+    let tcp_client_state = TcpClientState::<N, TX_SZ, RX_SZ>::new();
+    let tcp_client = TcpClient::new(wifi_stack, &tcp_client_state);
+    let dns = DnsSocket::new(wifi_stack);
+    let mut http_client = HttpClient::new(&tcp_client, &dns);
+
     let mut led = Output::new(peripherals.GPIO2, Level::High, OutputConfig::default());
 
     let mut relais = Output::new(peripherals.GPIO25, Level::Low, OutputConfig::default());
@@ -115,6 +130,8 @@ async fn main(spawner: Spawner) -> ! {
     let mut sensor = adc_config.enable_pin(peripherals.GPIO35, Attenuation::_11dB);
     let mut adc = Adc::new(peripherals.ADC1, adc_config);
 
+    let mut max_reading: u16 = 1;
+
     loop {
         led.toggle();
         relais.toggle();
@@ -122,10 +139,19 @@ async fn main(spawner: Spawner) -> ! {
         match nb::block!(adc.read_oneshot(&mut sensor)) {
             Err(_) => error!("could not read sensor"),
             Ok(reading) => {
-                let percent = u16::MAX / reading;
+                max_reading = cmp::max(reading, max_reading);
+                let percent = ((reading as f64 / max_reading as f64) * 100.0) as u8;
                 info!("sensor reading: {reading} ({percent}%)");
             }
         }
+
+        let url = format!("{}/ping", config.api.report_url);
+        let mut rx_buf = [0; 4 * 1024];
+        http_client.request(Method::GET, &url).await.unwrap().send(&mut rx_buf).await.unwrap();
+        let body_str = CStr::from_bytes_until_nul(&rx_buf).unwrap();
+        let body_str = body_str.to_str().unwrap();
+        info!("GOT RESPONSE");
+        body_str.lines().filter(|line| !line.is_empty()).for_each(|line| info!("{line}"));
 
         Timer::after(Duration::from_secs(1)).await;
     }
