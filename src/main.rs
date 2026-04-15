@@ -40,12 +40,14 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
         loop {
             delay.delay_millis(600);
             builtin_led.set_high();
-            delay.delay_millis(200);
+            delay.delay_millis(100);
             builtin_led.set_low();
-            delay.delay_millis(200);
+            delay.delay_millis(100);
             builtin_led.set_high();
-            delay.delay_millis(200);
+            delay.delay_millis(100);
             builtin_led.set_low();
+
+            error!("help");
         }
     }
 
