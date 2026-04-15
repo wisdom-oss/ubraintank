@@ -18,7 +18,9 @@ use embassy_net::{DhcpConfig, Runner, StackResources};
 use embassy_time::{Duration, Timer};
 use esp_hal::analog::adc::{Adc, AdcConfig, Attenuation};
 use esp_hal::clock::CpuClock;
+use esp_hal::delay::Delay;
 use esp_hal::gpio::{Level, Output, OutputConfig};
+use esp_hal::peripherals::GPIO2;
 use esp_hal::timer::timg::TimerGroup;
 use esp_radio::wifi::{ClientConfig, ModeConfig, WifiDevice};
 use esp_storage::FlashStorage;
@@ -29,10 +31,30 @@ use ubraintank::config::Config;
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
+    let delay = Delay::new();
+    if let Some(builtin_led_pin) = BUILTIN_LED_PIN.poll() {
+        let mut builtin_led_pin = builtin_led_pin.lock();
+        let builtin_led_pin = builtin_led_pin.reborrow();
+        let mut builtin_led = Output::new(builtin_led_pin, Level::Low, OutputConfig::default());
+
+        loop {
+            delay.delay_millis(600);
+            builtin_led.set_high();
+            delay.delay_millis(200);
+            builtin_led.set_low();
+            delay.delay_millis(200);
+            builtin_led.set_high();
+            delay.delay_millis(200);
+            builtin_led.set_low();
+        }
+    }
+
     loop {}
 }
 
 extern crate alloc;
+
+static BUILTIN_LED_PIN: spin::Once<spin::Mutex<GPIO2>> = spin::Once::new();
 
 // This creates a default app-descriptor required by the esp-idf bootloader.
 // For more information see:
@@ -49,6 +71,7 @@ async fn main(spawner: Spawner) -> ! {
 
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
+    BUILTIN_LED_PIN.call_once(|| spin::Mutex::new(peripherals.GPIO2));
 
     esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 98768);
 
@@ -121,7 +144,9 @@ async fn main(spawner: Spawner) -> ! {
     let dns = DnsSocket::new(wifi_stack);
     let mut http_client = HttpClient::new(&tcp_client, &dns);
 
-    let mut led = Output::new(peripherals.GPIO2, Level::High, OutputConfig::default());
+    let mut builtin_led_pin = BUILTIN_LED_PIN.wait().lock();
+    let builtin_led_pin = builtin_led_pin.reborrow();
+    let mut builtin_led_pin = Output::new(builtin_led_pin, Level::High, OutputConfig::default());
 
     let mut relais = Output::new(peripherals.GPIO25, Level::Low, OutputConfig::default());
 
@@ -132,7 +157,7 @@ async fn main(spawner: Spawner) -> ! {
     let mut max_reading: u16 = 1;
 
     loop {
-        led.toggle();
+        builtin_led_pin.toggle();
         relais.toggle();
 
         match nb::block!(adc.read_oneshot(&mut sensor)) {
@@ -146,11 +171,20 @@ async fn main(spawner: Spawner) -> ! {
 
         let url = format!("{}/ping", config.api.report_url);
         let mut rx_buf = [0; 4 * 1024];
-        http_client.request(Method::GET, &url).await.unwrap().send(&mut rx_buf).await.unwrap();
+        http_client
+            .request(Method::GET, &url)
+            .await
+            .unwrap()
+            .send(&mut rx_buf)
+            .await
+            .unwrap();
         let body_str = CStr::from_bytes_until_nul(&rx_buf).unwrap();
         let body_str = body_str.to_str().unwrap();
         info!("GOT RESPONSE");
-        body_str.lines().filter(|line| !line.is_empty()).for_each(|line| info!("{line}"));
+        body_str
+            .lines()
+            .filter(|line| !line.is_empty())
+            .for_each(|line| info!("{line}"));
 
         Timer::after(Duration::from_secs(1)).await;
     }
